@@ -323,8 +323,6 @@ void parallel_merge(struct node* arr, int l, int m, int r)
     }
 }
 
-/* l is for left index and r is right index of the
-   sub-array of arr to be sorted */
 void parallel_mergeSort(struct node* arr, int l, int r)
 {
     if (l < r)
@@ -438,138 +436,6 @@ void parallel_mergeSort_without_node(int* weight,int* src,int* dest, int l, int 
     }
 }
 
-void Sort_Mergesort(cl_context Context, cl_command_queue CommandQueue, size_t LocalWorkSize[3],int *m_hInput,int *input_index,cl_kernel m_MergesortStartKernel, cl_kernel  m_MergesortGlobalSmallKernel, cl_kernel m_MergesortGlobalBigKernel, cl_mem  m_dPingArray, cl_mem m_dPongArray,cl_mem m_input_index,cl_mem m_output_index, size_t m_N_padded)
-{
-    //TODO fix memory problem when many elements. -> CL_OUT_OF_RESOURCES
-    cl_int clError;
-    size_t globalWorkSize[1];
-    size_t localWorkSize[1];
-
-    localWorkSize[0] = LocalWorkSize[0];
-    globalWorkSize[0] = GetGlobalWorkSize(m_N_padded / 2, localWorkSize[0]);
-    unsigned int locLimit = 1;
-    clEnqueueWriteBuffer(CommandQueue, m_dPingArray, CL_FALSE, 0, m_N_padded * sizeof(int), m_hInput, 0, NULL, NULL);
-       clEnqueueWriteBuffer(CommandQueue, m_input_index, CL_FALSE, 0, m_N_padded * sizeof(int), input_index, 0, NULL, NULL);
-    if (m_N_padded >= LocalWorkSize[0] * 2) {
-        locLimit = 2 * LocalWorkSize[0];
-
-        // start with a local variant first, ASSUMING we have more than localWorkSize[0] * 2 elements
-        clError = clSetKernelArg(m_MergesortStartKernel, 0, sizeof(cl_mem), (void*)&m_dPingArray);
-        clError |= clSetKernelArg(m_MergesortStartKernel, 1, sizeof(cl_mem), (void*)&m_dPongArray);
-        clError |= clSetKernelArg(m_MergesortStartKernel, 2, sizeof(cl_mem), (void*)&m_input_index);
-        clError |= clSetKernelArg(m_MergesortStartKernel, 3, sizeof(cl_mem), (void*)&m_output_index);
-        //V_RETURN_CL(clError, "Failed to set kernel args: MergeSortStart");
-
-        clError = clEnqueueNDRangeKernel(CommandQueue, m_MergesortStartKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-        //V_RETURN_CL(clError, "Error executing MergeSortStart kernel!");
-        //clEnqueueReadBuffer(CommandQueue, m_dPongArray, CL_TRUE, 0, m_N_padded * sizeof(node), m_hInput, 0, NULL, NULL);
-         if (clError < 0)
-                    {   
-                        perror("Couldn't enqueue the kernel execution command tzy ");
-                        exit(1);
-                    }
-                cl_mem temp_to_swap=m_dPingArray;
-        m_dPingArray=m_dPongArray;
-        m_dPongArray=temp_to_swap;
-
-        temp_to_swap=m_input_index;
-        m_input_index=m_output_index;
-        m_output_index=temp_to_swap;
-
-//        swap(m_dPingArray, m_dPongArray);
-    }
-    //clEnqueueWriteBuffer(CommandQueue, m_dPingArray, CL_FALSE, 0, m_N_padded * sizeof(node), m_hInput, 0, NULL, NULL);
-    // proceed with the global variant
-    unsigned int stride = 2 * locLimit;
-
-    localWorkSize[0] = LocalWorkSize[0];
-    globalWorkSize[0] = GetGlobalWorkSize(m_N_padded / 2, localWorkSize[0]);
-
-    if (m_N_padded <= MERGESORT_SMALL_STRIDE) {
-        // set not changing arguments
-        clError = clSetKernelArg(m_MergesortGlobalSmallKernel, 3, sizeof(cl_uint), (void*)&m_N_padded);
-        //V_RETURN_CL(clError, "Failed to set kernel args: MergeSortGlobal");
-
-        for (; stride <= m_N_padded; stride <<= 1) {
-            //calculate work sizes
-            size_t neededWorkers = m_N_padded / stride;
-            //clEnqueueWriteBuffer(CommandQueue, m_dPingArray, CL_FALSE, 0, m_N_padded * sizeof(node), m_hInput, 0, NULL, NULL);
-            localWorkSize[0] = (LocalWorkSize[0]< neededWorkers)?LocalWorkSize[0]: neededWorkers;
-            globalWorkSize[0] = GetGlobalWorkSize(neededWorkers, localWorkSize[0]);
-
-            clError = clSetKernelArg(m_MergesortGlobalSmallKernel, 0, sizeof(cl_mem), (void*)&m_dPingArray);
-            clError |= clSetKernelArg(m_MergesortGlobalSmallKernel, 1, sizeof(cl_mem), (void*)&m_dPongArray);
-            clError |= clSetKernelArg(m_MergesortGlobalSmallKernel, 2, sizeof(cl_uint), (void*)&stride);
-                    clError |= clSetKernelArg(m_MergesortGlobalSmallKernel, 4, sizeof(cl_mem), (void*)&m_input_index);
-        clError |= clSetKernelArg(m_MergesortGlobalSmallKernel, 5, sizeof(cl_mem), (void*)&m_output_index);
-            //V_RETURN_CL(clError, "Failed to set kernel args: MergeSortGlobal");
-if (clError < 0)
-                    {
-                        perror("Couldn't enqueue the kernel execution command pty");
-                        exit(1);
-                    }
-            clError = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalSmallKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-            if (clError < 0)
-                    {
-                        perror("Couldn't enqueue the kernel execution command tjy");
-                        exit(1);
-                    }
-            //V_RETURN_CL(clError, "Error executing kernel!");
-        cl_mem temp_to_swap=m_dPingArray;
-        m_dPingArray=m_dPongArray;
-        m_dPongArray=temp_to_swap;
-
-
-        temp_to_swap=m_input_index;
-        m_input_index=m_output_index;
-        m_output_index=temp_to_swap;
-
-        }
-    }
-    else {
-        // set not changing arguments
-        clError = clSetKernelArg(m_MergesortGlobalBigKernel, 3, sizeof(cl_uint), (void*)&m_N_padded);
-        //V_RETURN_CL(clError, "Failed to set kernel args: MergeSortGlobal");
-
-        for (; stride <= m_N_padded; stride <<= 1) {
-            //calculate work sizes
-            size_t neededWorkers = m_N_padded / stride;
-            //clEnqueueWriteBuffer(CommandQueue, m_dPingArray, CL_FALSE, 0, m_N_padded * sizeof(node), m_hInput, 0, NULL, NULL);
-            localWorkSize[0] = (LocalWorkSize[0]< neededWorkers)?LocalWorkSize[0]: neededWorkers;
-            globalWorkSize[0] = GetGlobalWorkSize(neededWorkers, localWorkSize[0]);
-
-            clError = clSetKernelArg(m_MergesortGlobalBigKernel, 0, sizeof(cl_mem), (void*)&m_dPingArray);
-            clError |= clSetKernelArg(m_MergesortGlobalBigKernel, 1, sizeof(cl_mem), (void*)&m_dPongArray);
-            clError |= clSetKernelArg(m_MergesortGlobalBigKernel, 2, sizeof(cl_uint), (void*)&stride);
-            clError |= clSetKernelArg(m_MergesortGlobalBigKernel, 4, sizeof(cl_mem), (void*)&m_input_index);
-            clError |= clSetKernelArg(m_MergesortGlobalBigKernel, 5, sizeof(cl_mem), (void*)&m_output_index);
-            //V_RETURN_CL(clError, "Failed to set kernel args: MergeSortGlobal");
-if (clError < 0)
-                    {printf("%d tyyuu\n",clError);
-                        perror("Couldn't enqueue the kernel execution command topy");
-                        exit(1);
-                    }
-            clError = clEnqueueNDRangeKernel(CommandQueue, m_MergesortGlobalBigKernel, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-            //V_RETURN_CL(clError, "Error executing kernel!");
-if (clError < 0)
-                    {
-                        perror("Couldn't enqueue the kernel execution command tbny");
-                        exit(1);
-                    }
-            //if (stride >= 1024 * 1024) V_RETURN_CL(clFinish(CommandQueue), "Failed finish CommandQueue at mergesort for bigger strides.");
-                    cl_mem temp_to_swap=m_dPingArray;
-        m_dPingArray=m_dPongArray;
-        m_dPongArray=temp_to_swap;
-
-        temp_to_swap=m_input_index;
-        m_input_index=m_output_index;
-        m_output_index=temp_to_swap;
-        }
-    }
-    clEnqueueReadBuffer(CommandQueue, m_dPingArray, CL_TRUE, 0, m_N_padded * sizeof(int), m_hInput, 0, NULL, NULL);
-        clEnqueueReadBuffer(CommandQueue, m_input_index, CL_TRUE, 0, m_N_padded * sizeof(int), input_index, 0, NULL, NULL);
-    //return m_hInput;
-}
 
 int main() {
 
@@ -605,16 +471,12 @@ int main() {
     cl_mem            m_flag;
     cl_mem            m_size;
     cl_mem            sub_buffer;
-    cl_kernel         m_BitonicStartKernel;
-    cl_kernel         m_BitonicGlobalKernel;
-    cl_kernel         m_BitonicLocalKernel;
+  
     cl_kernel         kruskal_algo;
     cl_kernel         test_kruskal;
     size_t            m_N;
     size_t            m_N_padded;
-    cl_kernel           m_MergesortStartKernel;
-    cl_kernel           m_MergesortGlobalSmallKernel;
-    cl_kernel           m_MergesortGlobalBigKernel;
+  
 
     // input data
     //unsigned int* m_hInput;
@@ -652,7 +514,9 @@ int main() {
     struct Graph* sequential_input = createGraph(V,m_N_padded );
 
     int temp=0;
-    int input_temp=0;
+    int input_temp=0;\
+
+    //create random input graph.
     srand(time(0));
     for (cl_uint k = 0;k <2901 ; k++)
     {
@@ -661,34 +525,22 @@ int main() {
             sequential_input->edge[temp].src = k;
             sequential_input->edge[temp].dest = j;
 
-            //m_hInput[temp].src = k;
-            //m_hInput[temp].dest = j;
-
-            //input_src[input_temp]=k;
-            //input_dest[input_temp]=j;
-            
-            //input_index[input_temp]=input_temp;
           
             in_src[input_temp]=k;
             in_dest[input_temp]=j;
             
-            //in_index[input_temp]=input_temp;
+
           
             in_weight[input_temp] = rand() % 70+ rand() % 20;
-
-//            m_hInput[temp].weight = rand() % 70+ rand() % 20;//+rand() % 70;
-
-//           if (m_hInput[temp].weight > 60)m_hInput[temp].weight = 999;
 
              if (in_weight[input_temp]> 60)in_weight[input_temp] = 999;
 
            sequential_input->edge[temp].weight = in_weight[input_temp];
             
-//            input_weight[input_temp]=m_hInput[temp].weight;
-  //          in_weight[input_temp]=m_hInput[temp].weight;
+
            temp++;
            input_temp++;
-           //printf("%d \n", temp);
+
            if (temp == m_N_padded || temp== m_N_padded)
                break;
         }
@@ -698,16 +550,6 @@ int main() {
         sequential_input->edge[temp].dest = k;
         sequential_input->edge[temp].weight = 999;
 
-       // m_hInput[temp].src = k;
-        //m_hInput[temp].dest = k;
-
-        //m_hInput[temp].weight = 999;
-
-        // input_src[input_temp]=k;
-        // input_dest[input_temp]=k;
-            
-        // input_index[input_temp]=input_temp;
-        // input_weight[input_temp]=999;
 
 
         in_src[input_temp]=k;
@@ -722,15 +564,9 @@ int main() {
         if (temp == m_N_padded)
             break;
     }
-    printf("%d %d hy\n", temp, in_src[0]);
+    //printf("%d %d hy\n", temp, in_src[0]);
     m_N_padded = temp;
 
-  //  memcpy(in_weight,input_weight,sizeof(int)*input_temp);
-    //    memcpy(in_src,input_src,sizeof(int)*input_temp);
-      //      memcpy(in_dest,input_dest,sizeof(int)*input_temp);
-                //memcpy(in_weight,input_src,sizeof(int)*input_temp);
-    
-//    mergeSort(sequential_input->edge, 0, sequential_input->E - 1);
    double time_spent = 0.0;
     clock_t begin = clock();    
  mergeSort(sequential_input->edge, 0, sequential_input->E - 1);
@@ -832,18 +668,18 @@ int main() {
         printf("qweer %d", clError);
         exit(1);
     }
-m_MergesortGlobalSmallKernel = clCreateKernel(program, "Sort_MergesortGlobalSmall", &clError);
-    //V_RETURN_FALSE_CL(clError, "Failed to create kernel: Sort_MergesortGlobalSmall.");
+/*m_MergesortGlobalSmallKernel = clCreateKernel(program, "Sort_MergesortGlobalSmall", &clError);
+ 
     clError2 = clError;
     m_MergesortGlobalBigKernel = clCreateKernel(program, "Sort_MergesortGlobalBig", &clError);
     clError2 |= clError;
-    //V_RETURN_FALSE_CL(clError, "Failed to create kernel: Sort_MergesortGlobalBig.");
+ 
     m_MergesortStartKernel = clCreateKernel(program, "Sort_MergesortStart", &clError);
     clError2 |= clError;
     if (clError2 < 0) {
         printf("pm bn2 %d", clError2);
         exit(1);
-    }
+    }*/
     size_t globalWorkSize[1];
     size_t localWorkSize[1];
 
@@ -859,32 +695,15 @@ m_MergesortGlobalSmallKernel = clCreateKernel(program, "Sort_MergesortGlobalSmal
         exit(1);
     }
 size_t local_size[3]={256,1,1};
- //parallel_mergeSort(parallel_test, 0, temp - 1);
-    // int jklp=1;
-    /*for (int gh=0;gh<temp;gh++)
-    {
-        if(m_hInput[gh].weight!=parallel_test[gh].weight || m_hInput[gh].src!=parallel_test[gh].src || m_hInput[gh].dest!=parallel_test[gh].dest)
-            {jklp=0;
-                printf("sort not same\n\n");
-                break;
-            }
-    }
-    if(jklp)
-    {
-        printf("sort same\n\n");
-    }*/
-
-    m_resultGPU[1] = (node*)malloc(m_N_padded * sizeof(node));
-    //m_resultGPU[1] = m_hInput;
+ //    m_resultGPU[1] = (node*)malloc(m_N_padded * sizeof(node));
+ 
 
     cl_uint* p = malloc(sizeof(cl_uint) * m_N_padded);
     cl_uint* indicate = malloc(sizeof(cl_uint) * m_N_padded);
     cl_uint* result_indicate = malloc(sizeof(cl_uint) * m_N_padded);
     cl_uint* test = malloc(sizeof(cl_uint) * m_N_padded);
     cl_uint* flag = malloc(sizeof(cl_uint) * m_N_padded);
-    //node* inter_m = malloc(sizeof(node) * m_N_padded);
-    //inter_m[m_N_padded - 1].src = m_resultGPU[1][m_N_padded-1].src;
-    //inter_m[m_N_padded - 1].dest = m_resultGPU[1][m_N_padded - 1].dest;
+ 
     flag[0] = 0;
     flag[1] = 0;
     flag[2] = 1;
@@ -892,74 +711,12 @@ size_t local_size[3]={256,1,1};
     flag[4] = 1;
     int * src_input=(int *)malloc(sizeof(int)*m_N_padded);
     int * dest_input=(int *)malloc(sizeof(int)*m_N_padded);
-    // for (int i = 0; i < m_N_padded; i++)
-    // {
-    //     p[i] = i;
-    //     indicate[i] = 0;
-    //     src_input[i]=input_src[input_index[i]];
-    //     dest_input[i]=input_dest[input_index[i]];
-    //     //inter_m[i].src = m_resultGPU[1][i].src;
-    //     //inter_m[i].dest = m_resultGPU[1][i].dest;
-    // }
-    //printf("\n %d:%d %d:%d %d:%d in\n",m_hInput[4194303].src,input_src[4194303],m_hInput[4194303].dest,input_dest[4194303],m_hInput[4194303].weight,input_weight[4194303]);
-// int tesy_inpuwt=0;
-//  for ( int u = 0; u <input_temp; u++) {
-//         //printf("%d \n ", u);
-//         if(m_hInput[u].src!=input_src[input_index[u]] || m_hInput[u].dest!=input_dest[input_index[u]] || m_hInput[u].weight!=input_weight[u])
-//             {
-//                 tesy_inpuwt=1;
-//                 printf("\n %d:%d %d:%d %d:%d\n",m_hInput[u].src,input_index[u],m_hInput[u].dest,input_dest[input_index[u]],m_hInput[u].weight,input_weight[u]);
-//                 printf("not same %d \n",u);
-//                 break;
-//             }
-//    }
-//    if(tesy_inpuwt==0)
-//     printf("same \n");
-   //  begin = clock();
-   //parallel_mergeSort(m_hInput, 0, temp - 1);
-//    for (int i=0;i<input_temp;i++)
-//    {   if(in_weight[i]!=input_weight[i] || in_src[i]!=input_src[input_index[i]] || in_dest[i]!=input_dest[input_index[i]])
-//     {    //printf("not  sorted");
-// printf("\n %d:%d %d:%d %d:%d %d \n",in_weight[i],input_weight[i] , in_src[i],input_src[input_index[i]],in_dest[i],input_dest[input_index[i]],i);
-//              exit(0);
-//     }
-//printf("\n %d:%d %d:%d %d:%d %d \n",in_weight[i],input_weight[i] , in_src[i],input_src[input_index[i]],in_dest[i],input_dest[input_index[i]],i);
-   //}
-  //parallel_mergeSort_without_node(in_weight,in_src,in_dest,0,input_temp-1);
-  //  Sort_Mergesort(context, queue, local_size, m_hInput, m_MergesortStartKernel, m_MergesortGlobalSmallKernel, m_MergesortGlobalBigKernel, m_dPingArray, m_dPongArray, temp);
-//Sort_Mergesort(context, queue, local_size, input_weight,input_index, m_MergesortStartKernel, m_MergesortGlobalSmallKernel, m_MergesortGlobalBigKernel, m_dPingArray, m_dPongArray,m_input_index,m_output_index, input_temp);
-// int tesy_input=0;
-//  for ( int u = 0; u <input_temp; u++) {
-//         //printf("%d \n ", u);
-//     //printf("%d %d %d op\n",input_weight[u],m_hInput[u].weight,input_index[u]);
-//         if(m_hInput[u].src!=input_src[input_index[u]] || m_hInput[u].dest!=input_dest[input_index[u]] || m_hInput[u].weight!=input_weight[u])
-//             {
-//                 tesy_input=1;
-//                 printf("\n %d:%d %d:%d %d:%d %d \n",m_hInput[u].src,input_src[input_index[u]] ,m_hInput[u].dest,input_dest[input_index[u]],m_hInput[u].weight,input_weight[u],input_index[u]);
-//                 printf("not same %d \n",u);
-//                 break;
-//             }
-//    }
-//    if(tesy_input==0)
-//     printf("same \n");
-//m_resultGPU[1] = m_hInput;
+  
 for (int i = 0; i < m_N_padded; i++)
     {
         p[i] = i;
         indicate[i] = 0;
-        //if(i<10)
-        //  printf("%d %d %d %d %d \n",in_weight[i],in_src[i],input_src[input_index[i]],in_dest[i],input_dest[input_index[i]] );
-        //if(in_weight[i]!=input_weight[i] || in_src[i]!=input_src[input_index[i]] || in_dest[i]!=input_dest[input_index[i]])
-  //  { printf("not  sorted");
-//printf("\n %d:%d %d:%d %d:%d %d \n",in_weight[i],input_weight[i] , in_src[i],input_src[input_index[i]],in_dest[i],input_dest[input_index[i]],i);
-  //        exit(0);
-    //}
-        //src_input[i]=input_src[input_index[i]];
-        //dest_input[i]=input_dest[input_index[i]];
-        //src_input[i]=input_src[i];
-        //dest_input[i]=input_dest[i];
-        //inter_m[i].src = m_resultGPU[1][i].src;
-        //inter_m[i].dest = m_resultGPU[1][i].dest;
+  
     }
     globalWorkSize[0] = m_N_padded;
 
@@ -970,63 +727,54 @@ for (int i = 0; i < m_N_padded; i++)
         exit(1);
     }
 
-    //m_dPingArray = clCreateBuffer(context, CL_MEM_READ_WRITE| CL_MEM_COPY_HOST_PTR, sizeof(node) * m_N_padded, NULL, &clError2);
+  
     clError = clSetKernelArg(test_kruskal, 0, sizeof(cl_mem), (void*)&m_temp_input);
     
     clError |= clSetKernelArg(test_kruskal, 1, sizeof(cl_mem), (void*)&m_po);
 clError |= clSetKernelArg(test_kruskal, 2, sizeof(cl_mem), (void*)&m_indicate);
-    //clError |= clSetKernelArg(test_kruskal, 3, sizeof(cl_mem), (void*)&m_test);
- //   clError |= clSetKernelArg(test_kruskal, 4, sizeof(cl_mem), (void*)&m_size);
-    //clError |= clSetKernelArg(test_kruskal, 3, sizeof(cl_mem), (void*)&m_dPongArray);
-      //  clError |= clSetKernelArg(test_kruskal, 5, sizeof(cl_mem), (void*)&m_input_index);
+  
             clError |= clSetKernelArg(test_kruskal, 4, sizeof(cl_mem), (void*)&m_dPingArray);
-            //    clError = clSetKernelArg(test_kruskal, 0, sizeof(cl_mem), (void*)&m_temp_input);
-            //clError |= clSetKernelArg(test_kruskal, 2, sizeof(cl_mem), (void*)&m_indicate);
+  
     if (clError < 0) {
         printf("op %d", clError);
         exit(1);
     }
-    //cl_buffer_region region;
-
-    //clReleaseCommandQueue(queue);
-    //queue = clCreateCommandQueue(context, device, 0, &err);
+  
 FILE* ptr;
      ptr = fopen("parallel.txt", "w");
 
     begin = clock();
-    //Sort_Mergesort(context, queue, local_size, input_weight,input_index, m_MergesortStartKernel, m_MergesortGlobalSmallKernel, m_MergesortGlobalBigKernel, m_dPingArray, m_dPongArray,m_input_index,m_output_index, input_temp);
+  //sort the edge of the graph .
      parallel_mergeSort_without_node(in_weight,in_src,in_dest,0,input_temp-1);
     int v, j, ml;
     int temp_var = 0;
     globalWorkSize[0] = m_N_padded;
-    //cl_buffer_region region;
+  
     int o = m_N_padded - 1;
     int edg = 0;
-    //int first_time=1;
-  //  clEnqueueWriteBuffer(queue, m_dPingArray, CL_FALSE, 0, o * sizeof(node), m_resultGPU[1], 0, NULL, NULL);
-    //clEnqueueWriteBuffer(queue, m_temp_input, CL_FALSE, 0, o* sizeof(node), m_resultGPU[1], 0, NULL, NULL);
-    //clEnqueueWriteBuffer(queue, m_indicate, CL_FALSE, 0, o * sizeof(cl_uint), indicate, 0, NULL, NULL);
-    //for (int o = m_N_padded-1;o >=0 ;o--)
+  
     clEnqueueWriteBuffer(queue, m_temp_input, CL_FALSE, 0, o* sizeof(int), in_src, 0, NULL, NULL);
-                         //clEnqueueWriteBuffer(queue, m_input_index, CL_FALSE, 0, m_N_padded* sizeof(int), input_index, 0, NULL, NULL);
+  
                           clEnqueueWriteBuffer(queue, m_dPingArray, CL_FALSE, 0, o* sizeof(int), in_dest, 0, NULL, NULL);
                     clEnqueueWriteBuffer(queue, m_indicate, CL_FALSE, 0, o * sizeof(cl_uint), indicate, 0, NULL, NULL);
     clEnqueueWriteBuffer(queue, m_po, CL_FALSE, 0, V * sizeof(cl_uint), p, 0, NULL, NULL);
         while(o>=0 && edg<V-1)
-    //for (int o = 0;o < m_N_padded ;o++)
+  
     {
         
-      // printf("%d %d %d %d ert \n", p[2],p[0], m_resultGPU[0][o].weight,indicate[5]);
+    //this if condition check for the current edge that wheather it is already discarded by any parallel thread if not then add that to the graph.
         if (indicate[o] != 2)
         {
-            
+            //sorce parent
             ml=in_src[o];
-           // ml = inter_m[o].src;
+            //to find the root of the sorce
             ml=paralle_find(p, ml);
+            //destination parent
            j=in_dest[o];
            // j = inter_m[o].dest;
+          //to find the root of the destination
             j= paralle_find(p, j);
-        
+        //if root of src and dest is not same then add that to the graph.
             if (ml != j)
             {
                  indicate[o] = 1;
@@ -1046,27 +794,9 @@ FILE* ptr;
             if(temp_var%512==0 && o > 256)
                    {
 
-              
-                //region.origin = (o + 1) * sizeof(node);
-                //region.size = (m_N_padded - o - 1) * sizeof(node);
-               //sub_buffer = clCreateSubBuffer(m_dPingArray, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clError);
-                //clEnqueueWriteBuffer(queue, m_dPingArray, CL_FALSE, 0, o * sizeof(node), m_resultGPU[1], 0, NULL, NULL);
-               // clEnqueueWriteBuffer(queue, m_temp_input, CL_FALSE, 0, o* sizeof(node), m_resultGPU[1], 0, NULL, NULL);
-               // clEnqueueWriteBuffer(queue, m_po, CL_FALSE, 0, V * sizeof(cl_uint), p, 0, NULL, NULL);
-                    // if(first_time==1)
-                    // {
-                        //first_time++ ;
-                   //   clEnqueueWriteBuffer(queue, m_temp_input, CL_FALSE, 0, o* sizeof(int), in_src, 0, NULL, NULL);
-                   //       //clEnqueueWriteBuffer(queue, m_input_index, CL_FALSE, 0, m_N_padded* sizeof(int), input_index, 0, NULL, NULL);
-                   //        clEnqueueWriteBuffer(queue, m_dPingArray, CL_FALSE, 0, o* sizeof(int), in_dest, 0, NULL, NULL);
-                    // clEnqueueWriteBuffer(queue, m_indicate, CL_FALSE, 0, o * sizeof(cl_uint), indicate, 0, NULL, NULL);
-                    // }
-                    // first_time++ ;
-                //clEnqueueWriteBuffer(queue, m_indicate, CL_FALSE, 0, o * sizeof(cl_uint), indicate, 0, NULL, NULL);
-                //clEnqueueWriteBuffer(queue, m_size, CL_FALSE, 0, sizeof(cl_uint), &o, 0, NULL, NULL);
-                //globalWorkSize[0] = m_N_padded;
+  
                    clError |= clSetKernelArg(test_kruskal, 3, sizeof(cl_uint), (void*)&o);
-                //if (o >256) {
+  
                     if (clError < 0)
                     {printf("%d rt\n",clError);
                         perror("Couldn't enqueue the kernel execution command mike");
@@ -1077,23 +807,14 @@ FILE* ptr;
                     localWorkSize[0] = LocalWorkSize[0];
                     globalWorkSize[0] = GetGlobalWorkSize(o, localWorkSize[0]);
                     //localWorkSize[0] = LocalWorkSize[0];
+                   //call to the parallel function to find the remove the edge which form the cycle in the graph.
                     clError = clEnqueueNDRangeKernel(queue, test_kruskal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
                     if (clError < 0)
                     {printf("%d rt\n",clError);
                         perror("Couldn't enqueue the kernel execution command ty");
                         exit(1);
                     }
-                //}
-                //else {
-                //    globalWorkSize[0] = o;
-                //    clError = clEnqueueNDRangeKernel(queue, test_kruskal, 1, NULL, globalWorkSize, NULL, 0, NULL, NULL);
-                //    if (clError < 0)
-                //    {
-                //        perror("Couldn't enqueue the kernel execution command");
-                //        exit(1);
-                //    }
-                //}
-
+  
                 clError = clEnqueueReadBuffer(queue, m_indicate, CL_TRUE, 0, o * sizeof(cl_uint), indicate, 0, NULL, NULL);
                     if (clError < 0)
                 {printf("%d rt\n",clError);
@@ -1107,17 +828,7 @@ FILE* ptr;
                 break;
     }
 end = clock();
-    // FILE* ptr;
-    //  ptr = fopen("parallel.txt", "w");
- //   for ( int u = m_N_padded-1; u >=0; u--) {
-        //printf("%d \n ", u);
-   //     if(indicate[u]==1){
-   //     printf(" %d -->   %d  , weight=%d \n", m_resultGPU[1][u].src, m_resultGPU[1][u].dest, m_resultGPU[1][u].weight);
-     //   fprintf(ptr, "%d %d %d\n", m_resultGPU[1][u].src, m_resultGPU[1][u].dest, m_resultGPU[1][u].weight);
-       // }
-    
-    
-   // }
+  
     fclose(ptr);
      //end = clock();
     time_spent = 0.0;
@@ -1129,9 +840,9 @@ end = clock();
     clReleaseMemObject(m_indicate);
     clReleaseMemObject(m_test);
     clReleaseKernel(test_kruskal);
-    clReleaseKernel(m_MergesortStartKernel);
-    clReleaseKernel(m_MergesortGlobalBigKernel);
-    clReleaseKernel(m_MergesortGlobalSmallKernel);
+   // clReleaseKernel(m_MergesortStartKernel);
+    //clReleaseKernel(m_MergesortGlobalBigKernel);
+    //clReleaseKernel(m_MergesortGlobalSmallKernel);
     clReleaseProgram(program);
     clReleaseContext(context);
     clReleaseCommandQueue(queue);

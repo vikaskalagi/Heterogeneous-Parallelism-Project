@@ -19,44 +19,42 @@ eyes = generateColumns(1, 12)
 
 TPB=0
 
+#parallel function for crossover update on biase
 @cuda.jit
 def biase_crossover(rng_states,out,mutation_rate,mother):
-    """Find the maximum value in values and store in result[0]"""
-    #x , y= cuda.grid(2)
+    #find the position of element to operate on
     x=cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     y=cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
     tx = cuda.threadIdx.x
     ty = cuda.threadIdx.y
-    # Compute pi by drawing random (x, y) points and finding what
-    # fraction lie inside a unit circle
-    #inside = 0
     if x >= out.shape[0] and y >= out.shape[1]:
-        # Quit if (x, y) is outside of valid C boundary
         return
+    #generate random number
     rand = xoroshiro128p_uniform_float64(rng_states,x*out.shape[1]+y )
     #temp[x]=rand
+    #condition for crossover
     if(rand<mutation_rate):
 
         out[x][y] =mother[x][y]        
 
     #out[thread_id] = 4.0 * inside / iterations
 
-
+#parallel function for crossover update on weight
 @cuda.jit
 def weight_crossover(rng_states,out,mutation_rate,mother):
-    """Find the maximum value in values and store in result[0]"""
-    #x , y= cuda.grid(2)
+    
+    #find the position of element to operate on
     x=cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     y=cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
     tx = cuda.threadIdx.x
     ty = cuda.threadIdx.y
-    # Compute pi by drawing random (x, y) points and finding what
-    # fraction lie inside a unit circle
-    #inside = 0
+    
     if x >= out.shape[0] and y >= out.shape[1]:
-        # Quit if (x, y) is outside of valid C boundary
+       
         return
+    #generate random number    
     rand = xoroshiro128p_uniform_float64(rng_states,x*out.shape[1]+y )
+    #condition for crossover 
     if(rand<mutation_rate):
 
         out[x][y] =mother[x][y]       
@@ -65,22 +63,20 @@ def weight_crossover(rng_states,out,mutation_rate,mother):
 
 
 
-
+#parallel function for mutation update on biase
 
 @cuda.jit
 def biase_mutation(rng_states,out,mutation_rate):
-    """Find the maximum value in values and store in result[0]"""
-    #x , y= cuda.grid(2)
+    #find the position of element to operate on
     x=cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     y=cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
     tx = cuda.threadIdx.x
     ty = cuda.threadIdx.y
-    # Compute pi by drawing random (x, y) points and finding what
-    # fraction lie inside a unit circle
-    #inside = 0
+
     if x >= out.shape[0] and y >= out.shape[1]:
         # Quit if (x, y) is outside of valid C boundary
         return
+    #condition for random number.
     rand = xoroshiro128p_uniform_float64(rng_states,x*out.shape[1]+y )
     #temp[x]=rand
     if(rand<mutation_rate):
@@ -89,21 +85,19 @@ def biase_mutation(rng_states,out,mutation_rate):
 
     #out[thread_id] = 4.0 * inside / iterations
 
-
+#parallel function for mutation update on weight
 @cuda.jit
 def weight_mutation(rng_states,out,mutation_rate):
-    """Find the maximum value in values and store in result[0]"""
-    #x , y= cuda.grid(2)
+    #find the position of element to operate on
     x=cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
     y=cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
     tx = cuda.threadIdx.x
     ty = cuda.threadIdx.y
-    # Compute pi by drawing random (x, y) points and finding what
-    # fraction lie inside a unit circle
-    #inside = 0
+
     if x >= out.shape[0] and y >= out.shape[1]:
         # Quit if (x, y) is outside of valid C boundary
         return
+    #generate the random number.
     rand = xoroshiro128p_uniform_float64(rng_states,x*out.shape[1]+y )
     if(rand<mutation_rate):
 
@@ -111,7 +105,7 @@ def weight_mutation(rng_states,out,mutation_rate):
 
     #out[thread_id] = 4.0 * inside / iterations
 
-
+#parallel function for matrix multiplication
 @cuda.jit
 def fast_matmul(A, B, C):
     """
@@ -197,6 +191,7 @@ def relu(z):
 #         cat+=1
 #     return a
 
+#this function is use to find the output of the network for given input
 def feedforward(self, a):
     
     cat=0
@@ -212,7 +207,7 @@ def feedforward(self, a):
 def sigmoid(z):
     return 1.0/(1.0+np.exp(-z))
 
-
+#to get score for each network
 def score(self, X, y):
 
     total_score=0
@@ -222,7 +217,7 @@ def score(self, X, y):
         #print((np.power(predicted-actual,2)/2))
         total_score += np.sum(np.power(predicted-actual,2)/2)  # mean-squared error
     return total_score
-
+#to find the accuracy of the network
 def accuracy(self,X, y):
 
     #print(X)
@@ -235,7 +230,7 @@ def accuracy(self,X, y):
         accuracy += int(np.argmax(output) == np.argmax(y[i]))
     return accuracy / X.shape[0] * 100
 
-
+#network object
 class Network(object):
 
     def __init__(self, sizes):
@@ -246,7 +241,8 @@ class Network(object):
         self.weights = [np.random.randn(y, x) for x, y in zip(sizes[:-1], sizes[1:])]
         self.bias_nitem = sum(sizes[1:])
         self.weight_nitem = sum([self.weights[i].size for i in range(self.num_layers-2)])
-    
+ 
+#to generate random numbers for the network
 def get_random_point(self, type):
 
   
@@ -261,53 +257,42 @@ def get_random_point(self, type):
         point_index = random.randint(0,nn.biases[layer_index].size-1)
     return (layer_index, point_index)
 
+#to find all scores for all chromosomes
 def get_all_scores(self):
     return [score(net,self.X, self.y) for net in self.nets]
-
+#to find all accuracy for all chromosomes
 def get_all_accuracy(self):
     return [accuracy(net,self.X, self.y) for net in self.nets]
 
+#to do crossover for the network
 def crossover(self, father, mother):
     nn = copy.deepcopy(father)
-    # for _ in range(self.nets[0].bias_nitem):
-    #     layer, point = get_random_point(self,'bias')
-    #     if random.uniform(0,1) < self.crossover_rate:
-    #         nn.biases[layer][point] = mother.biases[layer][point]
-
-    # for _ in range(self.nets[0].weight_nitem):
-    #     layer, point = get_random_point(self,'weight')
-    #     if random.uniform(0,1) < self.crossover_rate:
-    #         nn.weights[layer][point] = mother.weights[layer][point]
+    
+    #for each biase update for layer 
     for u in range(nn.num_layers-1):
-        #layer, point = get_random_point(self,'weight')
-        #if random.uniform(0,1) < self.mutation_rate:
-        #    nn.weights[layer][point[0], point[1]] += random.uniform(-0.5, 0.5)
+        #number of thread in the block
         TPB=4
         x=nn.biases[u].shape[0]
         y=nn.biases[u].shape[1]
         threadsperblock = [x, y]
-        #blockspergrid_x=1
-        #blockspergrid_y=1
-        #temp=np.zeros(4)
+        
         if(x>TPB):
             threadsperblock[0]=TPB
             
         if(y>TPB):
             threadsperblock[1]=TPB
         threadsperblock=(threadsperblock[0],threadsperblock[1])
+        #number of block for the given input
         blockspergrid_x = int(math.ceil(x / threadsperblock[0]))    
         blockspergrid_y = int(math.ceil(y / threadsperblock[1]))
         blockspergrid = (blockspergrid_x, blockspergrid_y)
-        #C_global_mem = cuda.device_array((w.shape[0], a.shape[1]))
+        #generate random number object to call in kernel
         rng_states = create_xoroshiro128p_states(x*y, seed=random.randint(0, 10))
-        #print(nn.biases[u],"initial")
-        #print(blockspergrid,threadsperblock,rng_states.shape)
+        #call to parallel function for crossover on each layer based on the random number.
         biase_crossover[blockspergrid, threadsperblock](rng_states,nn.biases[u],self.crossover_rate,mother.biases[u])    
-        #print(nn.biases[u],"final")
+    #for each weight update for layer        
     for u in range(nn.num_layers-1):
-        #layer, point = get_random_point(self,'weight')
-        #if random.uniform(0,1) < self.mutation_rate:
-        #    nn.weights[layer][point[0], point[1]] += random.uniform(-0.5, 0.5)
+        #number of thread in the block
         TPB=4
         x=nn.weights[u].shape[0]
         y=nn.weights[u].shape[1]
@@ -320,13 +305,14 @@ def crossover(self, father, mother):
         if(y>TPB):
             threadsperblock[1]=TPB
         threadsperblock=(threadsperblock[0],threadsperblock[1])
+        
         blockspergrid_x = int(math.ceil(x / threadsperblock[0]))    
         blockspergrid_y = int(math.ceil(y / threadsperblock[1]))
         blockspergrid = (blockspergrid_x, blockspergrid_y)
         #C_global_mem = cuda.device_array((w.shape[0], a.shape[1]))
+        #generate random number object to use in kernel function.
         rng_states = create_xoroshiro128p_states(x*y, seed=random.randint(0, 10))
-        #print(nn.weights[u],"initial")
-        #print(blockspergrid,threadsperblock)
+        #call to parallel function for crossover on each layer based on the random number
         weight_crossover[blockspergrid, threadsperblock](rng_states,nn.weights[u],self.crossover_rate,mother.weights[u])
         #print(nn.weights[u],"final")
     return nn
@@ -346,8 +332,10 @@ def mutation(self, child):
 
     return nn
 '''
+#to do mutaion for the network
 def mutation(self, child):
     nn = copy.deepcopy(child)
+    #biase update for each layer
     for u in range(nn.num_layers-1):
         #layer, point = get_random_point(self,'weight')
         #if random.uniform(0,1) < self.mutation_rate:
@@ -369,11 +357,13 @@ def mutation(self, child):
         blockspergrid_y = int(math.ceil(y / threadsperblock[1]))
         blockspergrid = (blockspergrid_x, blockspergrid_y)
         #C_global_mem = cuda.device_array((w.shape[0], a.shape[1]))
+        #generate random number object to use in kernel function.
         rng_states = create_xoroshiro128p_states(x*y, seed=random.randint(0, 10))
         #print(nn.biases[u],"initial")
         #print(blockspergrid,threadsperblock,rng_states.shape)
         biase_mutation[blockspergrid, threadsperblock](rng_states,nn.biases[u],self.mutation_rate)    
         #print(nn.biases[u],"final",temp)
+    #weight update for layer 
     for u in range(nn.num_layers-1):
         #layer, point = get_random_point(self,'weight')
         #if random.uniform(0,1) < self.mutation_rate:
@@ -393,13 +383,14 @@ def mutation(self, child):
         blockspergrid_x = int(math.ceil(x / threadsperblock[0]))    
         blockspergrid_y = int(math.ceil(y / threadsperblock[1]))
         blockspergrid = (blockspergrid_x, blockspergrid_y)
-        #C_global_mem = cuda.device_array((w.shape[0], a.shape[1]))
+        #generate random number object to use in kernel function.
         rng_states = create_xoroshiro128p_states(x*y, seed=random.randint(0, 10))
-        #print(nn.weights[u],"initial")
-        #print(blockspergrid,threadsperblock)
+
         weight_mutation[blockspergrid, threadsperblock](rng_states,nn.weights[u],self.mutation_rate)
         #print(nn.weights[u],"final")
     return nn
+
+#this function is to call for the crossover and mutation based on the fitness value of all the chromosomes in the population.
 def evolve(nnga):
     score_list = list(zip(nnga.nets, get_all_scores(nnga)))
     score_list.sort(key=lambda x: x[1])
@@ -423,31 +414,8 @@ def evolve(nnga):
    
     nnga.nets = score_list_top
 
-def hill(self,nn):
-    temp=copy.deepcopy(nn)
-    final=nn.accuracy(self.X,self.y)
-    count=0
-    while(count!=1000):
-        count+=1
-        for i in range(4):  
-            temp.biases[0][i] += random.uniform(-0.5, 0.5)*4
-            for j in range(24):
-                temp.weights[0][i][j] += random.uniform(-0.5, 0.5)*4
-        for i in range(2):  
-            temp.biases[0][i] += random.uniform(-0.5, 0.5)*2
-            for j in range(4):
-                temp.weights[1][i][j] += random.uniform(-0.5, 0.5)*2
-        tm=temp.accuracy(self.X,self.y)
-        if(tm>final):
-            nn=copy.deepcopy(temp)
-            final=tm
-            
-        temp=copy.deepcopy(nn)
-        
-    return nn
 
-
-
+#object to create chromosomes for population.
 class NNGeneticAlgo:
 
     def __init__(self, n_pops, net_size, mutation_rate, crossover_rate, retain_rate, X, y):
@@ -481,20 +449,25 @@ def main():
     enc.fit(y)
     y = enc.transform(y).toarray()
 
-   
+    #number of population that should be maintained
     N_POPS = 15
+    #number of nodes in each layer
     NET_SIZE = [24,100,50,2]
+    #mutaion rate 
     MUTATION_RATE = 0.4
+    #crossover rate
     CROSSOVER_RATE = 0.6
+    #retaintion rate that has to be maintained for next generation.
     RETAIN_RATE = 0.4
 
-   
+    #object to create the network(chromosomes) in  population
     nnga = NNGeneticAlgo(N_POPS, NET_SIZE, MUTATION_RATE, CROSSOVER_RATE, RETAIN_RATE, X, y)
 
     start_time = time.time()
    
     i=0
     temp_accuracy=0
+    #number of epoch.
     epoch=100
     while(i<epoch):
         i+=1

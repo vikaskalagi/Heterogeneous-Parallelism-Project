@@ -149,7 +149,7 @@ double avg_parallel=0;
     long sizea, sizeb;
 
     infile1 = fopen("1million.txt", "r");
-    infile2 = fopen("1lakh_pattern.txt", "r");
+    infile2 = fopen("pattern.txt", "r");
 
     if (infile1 == NULL) {
         printf("File Not Found!\n");
@@ -221,11 +221,7 @@ double avg_parallel=0;
     cl_uint hash[num_cores][el_chunk_len];
 
     cl_int result[num_cores][el_chunk_len];
-    /*int **hash =(int **) malloc(sizeof(int *)* num_cores);
-    for (int hg = 0;hg < num_cores;hg++)
-    {
-        hash[hg] = (int*)malloc(sizeof(int) * el_chunk_len);
-    }*/
+    
     //matrix on host which holds the characters, each row will go to a core
     char css[num_cores][el_chunk_len];
     int iss[num_cores][el_chunk_len];
@@ -273,9 +269,10 @@ double avg_parallel=0;
     printf("%d %d %d \n", p, el_chunk_len, pattern_length);
     //printf("%d %d %c abg\n", strlen(a), strlen(b),a[0]);
     printf("hkdvkh\n");
-    /* Identify a platform */
+
     clock_t begin;// = clock();
     clock_t end;
+    /* Identify a platform */
     err = clGetPlatformIDs(1, &platform, NULL);
     if (err < 0) {
         perror("Couldn't find any platforms");
@@ -384,6 +381,7 @@ double avg_parallel=0;
     size_t globalWorkSize[1];
     size_t localWorkSize[1];
 
+//arguments for the findhashes function which works on gpu .
     clError = clSetKernelArg(findHashes, 0, sizeof(cl_mem), (void*)&m_dPingArray);
 
     clError |= clSetKernelArg(findHashes, 1, sizeof(cl_mem), (void*)&m_hash);
@@ -406,6 +404,7 @@ double avg_parallel=0;
     globalWorkSize[0] = num_cores;
     localWorkSize[0] = num_cores;
     begin = clock();
+    //call to parallel funtion findhash which is used to find the hash value of the text.
     clError = clEnqueueNDRangeKernel(queue, findHashes, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
     if (clError < 0)
     {
@@ -420,7 +419,7 @@ double avg_parallel=0;
         p0 = (dg * p0 + b[i]) % q;
         
     }
-
+//arguments for the seekpattern function which works on gpu .
     clError = clSetKernelArg(seekPattern, 0, sizeof(cl_mem), (void*)&m_dPingArray);
 
     clError |= clSetKernelArg(seekPattern, 1, sizeof(cl_mem), (void*)&m_hash);
@@ -434,7 +433,7 @@ double avg_parallel=0;
         printf("op %d", clError);
         exit(1);
     }  
-
+//call to the parallel funtion seekpattern which is used to search for the pattern.
     clError = clEnqueueNDRangeKernel(queue, seekPattern, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
 
     end = clock();
